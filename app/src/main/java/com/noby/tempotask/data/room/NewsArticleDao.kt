@@ -25,6 +25,6 @@ interface NewsArticleDao{
 
     @Query("SELECT * FROM news_article WHERE title LIKE '%'|| :searchQuery || '%'")
     fun getNewsArticles(searchQuery:String): Flow<List<NewsArticleDb>>
-    @Query("SELECT * FROM news_article")
-    fun getNewsArticles(): Flow<List<NewsArticleDb>>
+//    @Query("SELECT * FROM news_article")
+//    fun getNewsArticles(): Flow<List<NewsArticleDb>>
 }

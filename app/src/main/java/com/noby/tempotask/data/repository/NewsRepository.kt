@@ -1,11 +1,13 @@
 package com.akshay.newsapp.news.domain
 
 
+import android.content.Context
 import com.noby.tempotask.api.NewsApi
 import com.noby.tempotask.data.models.NewsResponse
 import com.noby.tempotask.data.room.NewsArticleDao
 import com.noby.tempotask.data.room.NewsMapper
 import com.noby.tempotask.data.room.entity.NewsArticleDb
+import com.noby.tempotask.util.Utils
 import com.noby.tempotask.util.ViewState
 import com.noby.tempotask.util.httpError
 import dagger.Binds
@@ -20,13 +22,12 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import retrofit2.Response
 import javax.inject.Inject
-import javax.inject.Singleton
 
 interface NewsRepository {
 
 
     fun getNewsArticles(searchQuery:String): Flow<ViewState<List<NewsArticleDb>>>
-
+    fun getNewsArticles(context: Context): Flow<ViewState<List<NewsArticleDb>>>
 
     suspend fun getNewsFromWebservice(): Response<NewsResponse>
 }
@@ -35,23 +36,31 @@ interface NewsRepository {
 class DefaultNewsRepository @Inject constructor(
     private val newsDao: NewsArticleDao,
     private val newsService: NewsApi
+
 ) : NewsRepository, NewsMapper {
 
     override fun getNewsArticles(searchQuery:String): Flow<ViewState<List<NewsArticleDb>>> = flow {
-        // 1. Start with loading
         emit(ViewState.loading())
-
-        // 2. Try to fetch fresh news from web + cache if any
-        val freshNews = getNewsFromWebservice()
-        freshNews.body()?.articles?.toStorage()?.let(newsDao::clearAndCacheArticles)
-
-        // 3. Get news from cache [cache is always source of truth]
         val cachedNews = newsDao.getNewsArticles(searchQuery)
         emitAll(cachedNews.map { ViewState.success(it) })
     }
         .flowOn(Dispatchers.IO)
 
-
+    override fun getNewsArticles(context: Context): Flow<ViewState<List<NewsArticleDb>>> = flow {
+        emit(ViewState.loading())
+        var internetAvailable: Boolean = Utils.isConnectingToInternet(context)
+        if (!internetAvailable) {
+            emit(ViewState.error("No Network"))
+            val cachedNews = newsDao.getNewsArticles("")
+            emitAll(cachedNews.map { ViewState.success(it) })
+        }else {
+            val freshNews = getNewsFromWebservice()
+            freshNews.body()?.articles?.toStorage()?.let(newsDao::clearAndCacheArticles)
+            val cachedNews = newsDao.getNewsArticles("")
+            emitAll(cachedNews.map { ViewState.success(it) })
+        }
+    }
+            .flowOn(Dispatchers.IO)
 
     override suspend fun getNewsFromWebservice(): Response<NewsResponse> {
         return try {
@@ -64,7 +73,6 @@ class DefaultNewsRepository @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 interface NewsRepositoryModule {
-    /* Exposes the concrete implementation for the interface */
     @Binds
     fun it(it: DefaultNewsRepository): NewsRepository
 }

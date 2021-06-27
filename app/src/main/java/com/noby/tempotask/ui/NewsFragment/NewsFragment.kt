@@ -45,23 +45,23 @@ class NewsFragment  : Fragment(), ArticlesAdapter.onItemClickListener {
         var view:View = binding!!.getRoot()
        initRecycle()
        getData()
-
         setHasOptionsMenu(true)
         return view
     }
 
     fun getData(){
-       // viewModel.SetNewsPages(requireContext())
-        viewModel.getNewsArticles().observe(viewLifecycleOwner) { state ->
+      viewModel.getNewsList()
+        viewModel.getNewsArticles.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is ViewState.Success -> {
                     hideProgressBar()
-                    adapter.submitList(state.data)}
+                    Log.e(TAG ,  state.data.size.toString())
+                    adapter.submitList(state.data)
+                }
                 is ViewState.Loading -> showProgressBar()
                 is ViewState.Error -> {
                     hideProgressBar()
                     Toast.makeText(requireActivity() , state.message, Toast.LENGTH_LONG ).show()
-                // toast("Something went wrong ¯\\_(ツ)_/¯ => ${state.message}")
                 }
             }
         }
@@ -79,9 +79,9 @@ class NewsFragment  : Fragment(), ArticlesAdapter.onItemClickListener {
         val searchView = searchItem.actionView as SearchView
 
         searchView.OnQueryTextChanged {
-            viewModel.searchQuery.value = it
+           // viewModel.searchQuery.value = it
             Log.e(TAG ,  it)
-
+           viewModel.SearchlistNewsList(it)
         }
     }
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
